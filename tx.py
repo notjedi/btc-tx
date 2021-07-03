@@ -3,17 +3,15 @@ import struct
 import ecdsa
 
 from ecdsa import util
-from wallet import generate_key_pair, hexify, sha256
-
-
-def be2le(val):
-    # big endian to little endian
-    # return bytearray.fromhex(val).reverse()
-    return hexify(struct.pack('<L', val))
+from wallet import generate_key_pair
+from utils import hexify, toLittleEndian, sha256
 
 
 def makeScriptPubKey(addr):
     # locking script
+    # https://learnmeabitcoin.com/technical/scriptPubKey
+    # https://wiki.bitcoinsv.io/index.php/Opcodes_used_in_Bitcoin_Script
+    # https://developer.bitcoin.org/devguide/transactions.html#p2pkh-script-validation
     return ('76' + # OP_DUP
             'a9' + # OP_HASH160
             addr + # PK_HASH
@@ -33,16 +31,17 @@ def makeOutput(data):
 
 
 def makeRawTx(txid, vout, scriptSig, outputs):
+    # https://en.bitcoin.it/wiki/Protocol_documentation#tx
     # https://learnmeabitcoin.com/technical/transaction-data
     # https://bitcoin.stackexchange.com/questions/35878/is-there-a-maximum-size-of-a-scriptsig-scriptpubkey
     # https://www.blockchain.com/btc-testnet/tx/dc2a7fa88c93327fe70893df86d1ed9df4904c8a586d661895756a7b528fbe01
-    version = be2le('00000001') # version: 1
+    version = toLittleEndian('00000001') # version: 1
     lockTime = '00000000'
 
     # inputs
     input_count = '01' # total input count
-    txid = be2le(txid) # txid (hash of the last tx)
-    vout = be2le(vout) # index of the output from the last tx
+    txid = toLittleEndian(txid) # txid (hash of the last tx)
+    vout = toLittleEndian(vout) # index of the output from the last tx
     inputs = input_count + txid + vout + hexify(len(scriptSig)) + scriptSig + 'ffffffff'
     # outputs
     output_count = hexify(len(outputs))
