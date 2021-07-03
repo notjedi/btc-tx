@@ -1,6 +1,6 @@
 import random
 import ecdsa
-from utils import b58wchecksum, hash160
+from utils import b58wchecksum, hash160, hexify
 
 class Wallet:
     def __init__(self, seed):
@@ -33,5 +33,11 @@ class Wallet:
         self.pub_addr = b58wchecksum(b'\x6f' + self.pub_key_hash)
 
 if __name__ == '__main__':
-    wallet = Wallet(3301)
-    print('pub_addr:', wallet.pub_addr)
+    org = Wallet(3301)
+    dest = Wallet(1337)
+    print(hexify(org.priv_key))
+    print(hexify(dest.priv_key))
+    # print(org.pub_addr)
+    # print(dest.pub_addr)
+    print(hexify(org.pub_key_hash))
+    print(hexify(dest.pub_key_hash))

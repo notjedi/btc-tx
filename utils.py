@@ -26,6 +26,12 @@ def getLen(val):
     # gets the length of the hex value given
     return hexify(len(binascii.unhexlify(val)))
 
+
+def netaddr(ipaddr, port):
+    # https://en.bitcoin.it/wiki/Protocol_documentation#Network_address
+    services = 1
+    return struct.pack('<Q12s', services, b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff') + struct.pack('>4sH', ipaddr, port)
+
 def sha256(val):
     return hashlib.sha256(val).digest()
 
