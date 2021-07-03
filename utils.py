@@ -5,11 +5,11 @@ import struct
 
 def btcToSatoshi(val):
     # 1 BTC = 1e8 satoshi
-    return val * 1e8
+    return int(val * 1e8)
 
 def toLittleEndian(val):
     # big endian to little endian
-    if isinstance(val, bytes):
+    if isinstance(val, bytes) or isinstance(val, int):
         out = struct.pack('<L', val)
     else:
         out = bytearray.fromhex(val)
