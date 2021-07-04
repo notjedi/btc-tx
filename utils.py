@@ -2,7 +2,6 @@ import binascii
 import hashlib
 import struct
 import base58
-import ecdsa
 
 def btcToSatoshi(val):
     # 1 BTC = 1e8 satoshi
@@ -23,9 +22,25 @@ def hexify(val):
     else:
         return hex(val)[2:]
 
+def unhexify(val):
+    return binascii.unhexlify(val)
+
 def getLen(val):
     # gets the length of the hex value given
     return hexify(len(binascii.unhexlify(val)))
+
+def varint(n):
+    if n < 0xfd:
+        return struct.pack('<B', n)
+    elif n < 0xffff:
+        return struct.pack('<cH', '\xfd', n)
+    elif n < 0xffffffff:
+        return struct.pack('<cL', '\xfe', n)
+    else:
+        return struct.pack('<cQ', '\xff', n)
+
+def varstr(s):
+    return varint(len(s)) + s
 
 def netaddr(ipaddr, port):
     # https://en.bitcoin.it/wiki/Protocol_documentation#Network_address
@@ -39,9 +54,6 @@ def ripemd160(val):
     ripemd = hashlib.new('ripemd160')
     ripemd.update(val)
     return ripemd.digest()
-
-def hash160(val):
-    return ripemd160(sha256(val))
 
 def b58wchecksum(val):
     checksum = sha256(sha256(val))[:4]
