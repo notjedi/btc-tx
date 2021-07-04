@@ -59,8 +59,6 @@ class Transaction:
         txid = toLittleEndian(txid) # txid (hash of the last tx)
         vout = toLittleEndian(vout) # index of the output from the last tx
         inputs = input_count + txid + vout + getLen(scriptSig) + scriptSig + 'ffffffff'
-        print(inputs)
-        print()
 
         # outputs
         output_count = '02'
@@ -69,8 +67,8 @@ class Transaction:
         return version + inputs + outputs + lockTime
 
 
-    def createOutputs(self, balance, value):
-        self.outputs = [[value, hexify(self.dest.pub_key_hash)], [balance-value, hexify(self.org.pub_key_hash)]]
+    def createOutputs(self, balance, value, fee):
+        self.outputs = [[value, hexify(self.dest.pub_key_hash)], [balance-value-fee, hexify(self.org.pub_key_hash)]]
 
 
     def makeMessage(self, command, payload):
@@ -78,7 +76,7 @@ class Transaction:
         # if isinstance(payload, str):
         #     payload = binascii.unhexlify(payload)
         # magic, command, payload length, payload checksum, payload
-        return struct.pack('L12sL4s', self.MAGIC_BYTES, command.encode('utf-8'), int(toLittleEndian(hexify(len(payload))), 16), toLittleEndian(payloadHash).encode('utf-8')) + payload
+        return struct.pack('L12sL4s', self.MAGIC_BYTES, command.encode('utf-8'), len(payload), toLittleEndian(payloadHash).encode('utf-8')) + payload
 
     
     def getVersionMsg(self):
@@ -113,17 +111,24 @@ class Transaction:
                 self.sock.recv(1000)
                 self.sock.recv(1000)
                 self.sock.send(self.makeMessage('tx', binascii.unhexlify(self.txPayload)))
+                print(self.sock.recv(1000))
                 print('Connection successful')
                 return
             except (ConnectionRefusedError, ConnectionResetError) as e:
                 print(e)
                 continue
 
-
     def signTx(self, tx):
         # https://bitcoin.stackexchange.com/questions/32628/redeeming-a-raw-transaction-step-by-step-example-required
         sk = ecdsa.SigningKey.from_string(self.org.priv_key, curve=ecdsa.SECP256k1)
-        return sk.sign_digest(tx, sigencode=util.sigencode_der) + self.HASH_CODE_TYPE
+        vk = ecdsa.VerifyingKey.from_string(self.org.pub_key, curve=ecdsa.SECP256k1)
+
+        txSig = sk.sign_digest(tx, sigencode=util.sigencode_der)
+        r, s = util.sigdecode_der(txSig, sk.curve.generator.order())
+        decodedSig = binascii.unhexlify(('%064x%064x' % (r, s)))
+
+        assert vk.verify_digest(decodedSig, tx)
+        return txSig + self.HASH_CODE_TYPE
 
 
     def makeSignedTx(self, txid, vout):
@@ -146,14 +151,21 @@ if __name__ == '__main__':
     org = Wallet(3301)
     dest = Wallet(1337)
 
+    # https://bitcoin.stackexchange.com/questions/68254/how-can-i-fix-this-non-canonical-signature-s-value-is-unnecessarily-high
+    # https://bitcoin.stackexchange.com/questions/68390/bitcoin-core-bad-txns-in-belowout
+    # https://bitcoin.stackexchange.com/questions/48235/what-is-the-minrelaytxfee
+    # https://tbtc.bitaps.com/broadcast
     txid = 'dc2a7fa88c93327fe70893df86d1ed9df4904c8a586d661895756a7b528fbe01'
     vout = '00000001'
-    balance = btcToSatoshi(0.03252596)
-    val = btcToSatoshi(0.0001)
+    # balance = btcToSatoshi(0.03252596)
+    balance = btcToSatoshi(0.0001)
+    val = btcToSatoshi(0.00001)
+    fee = btcToSatoshi(0.00001)
     
     tx = Transaction(org, dest)
-    tx.createOutputs(balance, val)
+    tx.createOutputs(balance, val, fee)
     data = tx.makeSignedTx(txid, vout)
     print(data)
+    print()
+    print(hexify(sha256(sha256(data.encode('utf-8')))))
     # tx.send()
-    # print(sha256(sha256(data.encode('utf-8'))))

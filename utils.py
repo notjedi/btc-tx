@@ -1,7 +1,8 @@
-import hashlib
-import base58
 import binascii
+import hashlib
 import struct
+import base58
+import ecdsa
 
 def btcToSatoshi(val):
     # 1 BTC = 1e8 satoshi
@@ -9,7 +10,7 @@ def btcToSatoshi(val):
 
 def toLittleEndian(val):
     # big endian to little endian
-    if isinstance(val, bytes) or isinstance(val, int):
+    if isinstance(val, int):
         out = struct.pack('<L', val)
     else:
         out = bytearray.fromhex(val)
@@ -25,7 +26,6 @@ def hexify(val):
 def getLen(val):
     # gets the length of the hex value given
     return hexify(len(binascii.unhexlify(val)))
-
 
 def netaddr(ipaddr, port):
     # https://en.bitcoin.it/wiki/Protocol_documentation#Network_address
