@@ -59,5 +59,6 @@ hexdump of the broadcast data corresponding to tx [`bc5c87ee33cd45814b006b2ee23e
 ```
 
 but then this didn't work, so i don't know maybe i didn't connect with the correct peers?
+account model > UTXO atleast intuitively
 
 used this website to broadcast the raw tx: [bitaps](https://tbtc.bitaps.com/broadcast) & [blockstream](https://blockstream.info/testnet/tx/push)
