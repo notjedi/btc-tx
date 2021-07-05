@@ -11,6 +11,9 @@ def toLittleEndian(val):
     # big endian to little endian
     if isinstance(val, int):
         out = struct.pack('<L', val)
+    elif isinstance(val, bytes):
+        out = bytearray(val)
+        out.reverse()
     else:
         out = bytearray.fromhex(val)
         out.reverse()
@@ -58,3 +61,10 @@ def ripemd160(val):
 def b58wchecksum(val):
     checksum = sha256(sha256(val))[:4]
     return base58.b58encode(val + checksum).decode()
+
+
+def sock_read(sock, count):
+    ret = b''
+    while len(ret) < count:
+        ret += sock.recv(count-len(ret))
+    return ret

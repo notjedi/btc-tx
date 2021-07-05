@@ -1,6 +1,7 @@
 import random
 import ecdsa
-from utils import b58wchecksum, ripemd160, sha256
+
+from utils import b58wchecksum, ripemd160, sha256, hexify, unhexify
 
 class Wallet:
     def __init__(self, seed):
@@ -36,7 +37,12 @@ class Wallet:
     
     @staticmethod
     def compressPubKey(pub_key):
-        pass
+        x = int(hexify(pub_key[1:0x21]), 16)
+        y = int(hexify(pub_key[0x21:]), 16)
+        if y & 1:
+            return b'\x03' + unhexify(format(x, '064x'))
+        else:
+            return b'\x02' + unhexify(format(x, '064x'))
 
     @staticmethod
     def pubKeyToPubKeyHash(pub_key):

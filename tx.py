@@ -4,9 +4,10 @@ import random
 import ecdsa
 import time
 
-from ecdsa import util
-from wallet import Wallet
 from utils import hexify, unhexify, toLittleEndian, sha256, getLen, btcToSatoshi, netaddr, varstr
+from hexdump import hexdump
+from wallet import Wallet
+from ecdsa import util
 
 
 class Transaction:
@@ -21,7 +22,7 @@ class Transaction:
         self.OP_EQUALVERIFY = '88'
         self.OP_CHECKSIG = 'ac'
         self.HASH_CODE_TYPE = b'\x01'
-        self.MAGIC_BYTES = int('0b110907', 16) # testnet magic bytes
+        self.MAGIC_BYTES = '0b110907' # testnet magic bytes
 
 
     def makeScriptPubKey(self, addr):
@@ -71,18 +72,19 @@ class Transaction:
 
 
     def makeMessage(self, command, payload):
-        payloadHash = hexify(sha256(sha256(payload))[:4])
+        payloadHash = self.dbl256(payload)[:4]
         # magic, command, payload length, payload checksum, payload
-        return struct.pack('L12sL4s', self.MAGIC_BYTES, command.encode('utf-8'), len(payload), toLittleEndian(payloadHash).encode('utf-8')) + payload
+        return unhexify(self.MAGIC_BYTES) + struct.pack('12s', command.encode('utf-8')) +  len(payload).to_bytes(4, 'little') + struct.pack('4s', unhexify(toLittleEndian(payloadHash))) + payload
 
-    
+
     def getVersionMsg(self):
+        # http://sebastianappelt.com/understanding-blockchain-peer-discovery-and-establishing-a-connection-with-python/
         services = 1
         timestamp = int(time.time())
         addr_recv = netaddr(socket.inet_aton('127.0.0.1'), 8333)
         addr_from = netaddr(socket.inet_aton('127.0.0.1'), 8333)
         nonce = random.getrandbits(64)
-        user_agent = b'\x00'
+        user_agent = varstr(b'')
         start_height = 0
 
         payload = struct.pack('<LQQ26s26sQsL', self.PROTOCOL_VERSION, services, timestamp, addr_recv, addr_from, nonce, user_agent, start_height)
@@ -100,19 +102,24 @@ class Transaction:
             try:
                 print('Connecting with: ', peer)
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                peer = '222.237.76.118'
                 self.sock.connect((peer, 8333))
-                self.sock.send(self.getVersionMsg())
-                # not verifying the message cause this is a testrun
-                self.sock.recv(1000)
-                self.sock.recv(1000)
-                self.sock.send(self.makeMessage('tx', unhexify(self.txPayload)))
-                print(self.sock.recv(1000))
                 print('Connection successful')
+
+                self.sock.send(self.getVersionMsg())
+                self.sock.send(self.makeMessage('verack', b''))
+                # self.sock.recv(1000)
+
+                self.broadcast = self.makeMessage('tx', unhexify(self.txPayload))
+                self.sock.send(self.broadcast)
+                hexdump(self.broadcast)
                 return
             except (ConnectionRefusedError, ConnectionResetError) as e:
                 print(e)
                 continue
+
+    @staticmethod
+    def dbl256(val):
+        return sha256(sha256(val))
 
 
     def signTx(self, tx):
@@ -139,10 +146,10 @@ class Transaction:
     def makeSignedTx(self, txid, vout):
         # tx without scriptSig
         scriptPubKey = self.makeScriptPubKey(hexify(self.org.pub_key_hash))
-        rawTx = self.makeRawTx(txid, vout, scriptPubKey) + hexify(struct.pack('<L', int.from_bytes(self.HASH_CODE_TYPE, 'big')))
+        fakeTx = unhexify(self.makeRawTx(txid, vout, scriptPubKey) + hexify(struct.pack('<L', int.from_bytes(self.HASH_CODE_TYPE, 'big'))))
 
         # sign rawTx | unlocking script
-        txDigest = sha256(sha256(rawTx.encode('utf-8')))
+        txDigest = self.dbl256(fakeTx)
         signedTx = self.signTx(txDigest)
 
         # tx with scriptSig
@@ -158,15 +165,16 @@ if __name__ == '__main__':
 
     # https://bitcoin.stackexchange.com/questions/68390/bitcoin-core-bad-txns-in-belowout
     # https://bitcoin.stackexchange.com/questions/48235/what-is-the-minrelaytxfee
-    txid = 'dc2a7fa88c93327fe70893df86d1ed9df4904c8a586d661895756a7b528fbe01'
-    vout = 1
-    balance = btcToSatoshi(0.0001)
+    # REPLACE ALL OF THESE WITH YOUR DATA
+    txid = '2b89646ada2f01b7c587469e463bec0e7eea02457988534b1b2192607eca2f5b'
+    vout = 0
+    balance = btcToSatoshi(0.001)
     val = btcToSatoshi(0.00001)
     fee = btcToSatoshi(0.00001)
-    
+
     tx = Transaction(org, dest)
     tx.createOutputs(balance, val, fee)
     data = tx.makeSignedTx(txid, vout)
-    print(data)
-    # print(hexify(sha256(sha256(data.encode('utf-8')))))
-    # tx.send()
+    print('data:', data, end='\n\n')
+    print('txid:', toLittleEndian(hexify(Transaction.dbl256(unhexify(data)))), end='\n\n')
+    tx.send()
